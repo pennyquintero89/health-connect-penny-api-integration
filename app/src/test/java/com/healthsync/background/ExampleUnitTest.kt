@@ -1,4 +1,4 @@
-package com.example.healthconnectapp
+package com.healthsync.background
 
 import org.junit.Test
 

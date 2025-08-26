@@ -1,4 +1,7 @@
 package com.healthsync.background.config
 
-class WorkScheduler {
+import android.content.Context
+
+interface WorkScheduler {
+    fun scheduleWork(context: Context)
 }
