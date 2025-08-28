@@ -2,10 +2,9 @@ package com.healthsync.background.di
 
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
-import com.healthsync.background.network.ApiService
-import com.healthsync.background.security.TokenManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.healthsync.background.network.ApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

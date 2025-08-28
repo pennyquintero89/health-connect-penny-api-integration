@@ -1,7 +1,7 @@
 package com.healthsync.background.mapper
 
-import com.healthsync.background.model.HealthData
 import com.healthsync.background.dto.HealthDataDto
+import com.healthsync.background.model.HealthData
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 

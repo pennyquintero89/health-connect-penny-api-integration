@@ -9,7 +9,6 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import com.healthsync.background.model.HealthData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject

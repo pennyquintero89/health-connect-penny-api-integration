@@ -4,6 +4,4 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class WorkerDependency @Inject constructor() {
-
-}
+class WorkerDependency @Inject constructor()
