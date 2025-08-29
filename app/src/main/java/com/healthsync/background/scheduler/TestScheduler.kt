@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 class TestScheduler : WorkScheduler {
     override fun scheduleWork(context: Context) {
         val testWork = OneTimeWorkRequestBuilder<HealthDataWorker>()
-            .setInitialDelay(15, TimeUnit.MINUTES)
+            .setInitialDelay(1, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(
             "TestHealthDataWork",

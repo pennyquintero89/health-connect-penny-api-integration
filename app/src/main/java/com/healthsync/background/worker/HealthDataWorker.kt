@@ -9,6 +9,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.healthsync.background.R
+import com.healthsync.background.config.AppConfig
 import com.healthsync.background.config.DeviceIdManager
 import com.healthsync.background.dto.TokenRequest
 import com.healthsync.background.mapper.HealthDataMapper
@@ -32,17 +33,18 @@ class HealthDataWorker @AssistedInject constructor(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             Log.d("HealthDataWorker", "Sync Starting...")
-            val backendAvailable = false
-            if (!backendAvailable) return@withContext Result.success()
+
+            val today = LocalDate.now()
+            val healthData = healthRepository.getTodayHealthData(today)
+            val healthDataDto = HealthDataMapper.toDto(healthData, today)
+
+            if (!AppConfig.backendReady) {return@withContext Result.success()}
 
             val deviceId = deviceIdManager.getOrCreateDeviceId(applicationContext)
 
             val tokenResponse = apiService.getClientToken(TokenRequest(deviceId))
             val accessToken = tokenResponse.accessToken
 
-            val today = LocalDate.now()
-            val healthData = healthRepository.getTodayHealthData(today)
-            val healthDataDto = HealthDataMapper.toDto(healthData, today)
 
             apiService.uploadHealthData("Bearer $accessToken", healthDataDto)
             Log.d("HealthDataWorker", "Sync Completed.")
