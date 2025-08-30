@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.healthsync.background.BuildConfig
 import com.healthsync.background.network.ApiService
 import dagger.Module
 import dagger.Provides
@@ -42,7 +43,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://your-backend-api.com/api/")
+            .baseUrl(BuildConfig.BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
