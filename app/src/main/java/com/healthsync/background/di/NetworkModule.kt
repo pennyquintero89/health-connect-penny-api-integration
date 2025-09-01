@@ -1,9 +1,11 @@
 package com.healthsync.background.di
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.healthsync.background.BuildConfig
 import com.healthsync.background.network.ApiService
 import dagger.Module
 import dagger.Provides
@@ -14,8 +16,13 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import java.security.cert.X509Certificate
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -42,8 +49,8 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://your-backend-api.com/api/")
-            .client(okHttpClient)
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(provideUnsafeOkHttpClient())
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }
@@ -56,5 +63,24 @@ object NetworkModule {
     @Singleton
     fun provideHealthConnectClient(@ApplicationContext context: Context): HealthConnectClient {
         return HealthConnectClient.getOrCreate(context)
+    }
+
+    fun provideUnsafeOkHttpClient(): OkHttpClient {
+        val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        })
+
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, trustAllCerts, SecureRandom())
+
+        return OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
     }
 }
