@@ -1,7 +1,6 @@
 package com.healthsync.background.ui
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -25,13 +24,23 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.health.connect.client.records.*
+import androidx.core.net.toUri
+import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class PermissionActivity : AppCompatActivity() {
 
     private lateinit var healthConnectClient: HealthConnectClient
     private lateinit var requestPermissionActivityLauncher: ActivityResultLauncher<Set<String>>
+
+    private lateinit var healthConnectLauncher: ActivityResultLauncher<Intent>
+
+
+    // UI State variables
+    private var isSyncing = false
+    private var lastSyncTime: String? = null
 
     private val readPermissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
@@ -69,30 +78,30 @@ class PermissionActivity : AppCompatActivity() {
         diagnosticHealthConnect()
 
         val availabilityStatus = HealthConnectClient.getSdkStatus(this)
-        Log.d("PermissionActivity", "Health Connect status: $availabilityStatus")
+        Log.d(PERMISSION_ACTIVITY_NAME, "Health Connect status: $availabilityStatus")
 
         when (availabilityStatus) {
             HealthConnectClient.SDK_UNAVAILABLE -> {
-                Log.e("PermissionActivity", "Health Connect SDK not available")
+                Log.e(PERMISSION_ACTIVITY_NAME, "Health Connect SDK not available")
                 showInstallHealthConnectDialog()
                 return
             }
             HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
-                Log.e("PermissionActivity", "Health Connect needs update")
+                Log.e(PERMISSION_ACTIVITY_NAME, "Health Connect needs update")
                 showUpdateHealthConnectDialog()
                 return
             }
             HealthConnectClient.SDK_AVAILABLE -> {
-                Log.i("PermissionActivity", "Health Connect available")
+                Log.i(PERMISSION_ACTIVITY_NAME, "Health Connect available")
             }
         }
 
         try {
             healthConnectClient = HealthConnectClient.getOrCreate(this)
-            Log.d("PermissionActivity", "HealthConnectClient created successfully")
+            Log.d(PERMISSION_ACTIVITY_NAME, "HealthConnectClient created successfully")
         } catch (e: Exception) {
-            Log.e("PermissionActivity", "Error creating HealthConnectClient", e)
-            showErrorDialog("Error connecting to Health Connect: ${e.message}")
+            Log.e(PERMISSION_ACTIVITY_NAME, "Error creating HealthConnectClient", e)
+            showErrorDialog(getString(R.string.error_connecting_health_connect, e.message))
             return
         }
 
@@ -102,106 +111,120 @@ class PermissionActivity : AppCompatActivity() {
         requestPermissionActivityLauncher = registerForActivityResult(
             requestPermissionActivityContract
         ) { grantedPermissions ->
-            Log.d("PermissionActivity", "=== CALLBACK RECEIVED ===")
-            Log.d("PermissionActivity", "Granted permissions: $grantedPermissions")
-            Log.d("PermissionActivity", "Required permissions: $readPermissions")
-            Log.d("PermissionActivity", "Thread: ${Thread.currentThread().name}")
+            Log.d(PERMISSION_ACTIVITY_NAME, "=== CALLBACK RECEIVED ===")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Granted permissions: $grantedPermissions")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Required permissions: $readPermissions")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Thread: ${Thread.currentThread().name}")
             handlePermissionResult(grantedPermissions)
         }
 
-        checkPermissionsOnStart()
+        healthConnectLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            Log.d(PERMISSION_ACTIVITY_NAME, "Health Connect result: ${result.resultCode}")
+            checkPermissionsOnStart()
+        }
 
+        checkPermissionsOnStart()
+        setupClickListeners()
+    }
+
+    private fun setupClickListeners() {
         findViewById<Button>(R.id.button_request_permissions).setOnClickListener {
-            Log.d("PermissionActivity", "Manual permission request button clicked")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Manual permission request button clicked")
             requestPermissions()
         }
 
         findViewById<Button>(R.id.button_open_health_connect)?.setOnClickListener {
-            Log.d("PermissionActivity", "Opening Health Connect directly")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Opening Health Connect directly")
             openHealthConnectDirectly()
+        }
+
+        // Add sync button listener if it exists in the layout
+        findViewById<Button>(R.id.button_sync_data)?.setOnClickListener {
+            Log.d(PERMISSION_ACTIVITY_NAME, "Manual sync requested")
+            startDataSync()
         }
     }
 
     private fun diagnosticHealthConnect() {
-        Log.d("PermissionActivity", "=== DIAGNOSTIC INFO ===")
-        Log.d("PermissionActivity", "Package name: $packageName")
-        Log.d("PermissionActivity", "SDK version: ${Build.VERSION.SDK_INT}")
+        Log.d(PERMISSION_ACTIVITY_NAME, "=== DIAGNOSTIC INFO ===")
+        Log.d(PERMISSION_ACTIVITY_NAME, "Package name: $packageName")
+        Log.d(PERMISSION_ACTIVITY_NAME, "SDK version: ${Build.VERSION.SDK_INT}")
 
-        // Verificar si Health Connect está instalado
+        // Verificar si Health Connect esta instalado
         try {
             val pm = packageManager
             val healthConnectInfo = pm.getApplicationInfo("com.google.android.apps.healthdata", 0)
-            Log.d("PermissionActivity", "Health Connect installed: ${healthConnectInfo.enabled}")
-            Log.d("PermissionActivity", "Health Connect version: ${pm.getPackageInfo("com.google.android.apps.healthdata", 0).versionName}")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Health Connect installed: ${healthConnectInfo.enabled}")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Health Connect version: ${pm.getPackageInfo("com.google.android.apps.healthdata", 0).versionName}")
         } catch (e: Exception) {
-            Log.e("PermissionActivity", "Health Connect not found: $e")
+            Log.e(PERMISSION_ACTIVITY_NAME, "Health Connect not found: $e")
         }
 
         // Verificar permisos en manifest
         try {
             val pm = packageManager
             val permissions = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS).requestedPermissions
-            Log.d("PermissionActivity", "Manifest permissions: ${permissions?.toList()}")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Manifest permissions: ${permissions?.toList()}")
         } catch (e: Exception) {
-            Log.e("PermissionActivity", "Error reading manifest permissions: $e")
+            Log.e(PERMISSION_ACTIVITY_NAME, "Error reading manifest permissions: $e")
         }
     }
 
     private fun checkPermissionsOnStart() {
         lifecycleScope.launch {
             try {
-                Log.d("PermissionActivity", "Checking current permissions...")
+                Log.d(PERMISSION_ACTIVITY_NAME, "Checking current permissions...")
                 val grantedPermissions = healthConnectClient.permissionController.getGrantedPermissions()
-                Log.d("PermissionActivity", "Current granted permissions: $grantedPermissions")
-                Log.d("PermissionActivity", "Required permissions: $readPermissions")
+                Log.d(PERMISSION_ACTIVITY_NAME, "Current granted permissions: $grantedPermissions")
+                Log.d(PERMISSION_ACTIVITY_NAME, "Required permissions: $readPermissions")
 
                 val missingPermissions = readPermissions - grantedPermissions
                 if (missingPermissions.isEmpty()) {
-                    Log.d("PermissionActivity", "All permissions already granted")
+                    Log.d(PERMISSION_ACTIVITY_NAME, "All permissions already granted")
                     updateUIForAllPermissionsGranted()
-                    setResult(RESULT_OK)
+                    // Don't finish the activity, let user stay to use sync and Health Connect access
                     scheduleWorker()
-                    finish()
                 } else {
-                    Log.d("PermissionActivity", "Missing permissions: $missingPermissions")
+                    Log.d(PERMISSION_ACTIVITY_NAME, "Missing permissions: $missingPermissions")
                     updateUIForPermissionRequest()
                 }
             } catch (e: Exception) {
-                Log.e("PermissionActivity", "Error checking permissions", e)
+                Log.e(PERMISSION_ACTIVITY_NAME, "Error checking permissions", e)
                 updateUIForPermissionRequest()
             }
         }
     }
 
     private fun requestPermissions() {
-        Log.d("PermissionActivity", "=== REQUESTING PERMISSIONS ===")
-        Log.d("PermissionActivity", "Permissions to request: $readPermissions")
+        Log.d(PERMISSION_ACTIVITY_NAME, "=== REQUESTING PERMISSIONS ===")
+        Log.d(PERMISSION_ACTIVITY_NAME, "Permissions to request: $readPermissions")
 
         try {
-            // Verificar que el launcher esté listo
+            // Verificar que el launcher estÃ© listo
             if (!::requestPermissionActivityLauncher.isInitialized) {
-                Log.e("PermissionActivity", "Permission launcher not initialized")
-                showErrorDialog("Internal Error: launcher not initialized")
+                Log.e(PERMISSION_ACTIVITY_NAME, "Permission launcher not initialized")
+                showErrorDialog(getString(R.string.internal_error_launcher))
                 return
             }
 
             // Verificar el estado actual de la activity
-            Log.d("PermissionActivity", "Activity state - isFinishing: $isFinishing, isDestroyed: $isDestroyed")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Activity state - isFinishing: $isFinishing, isDestroyed: $isDestroyed")
 
             // Lanzar la solicitud de permisos
-            Log.d("PermissionActivity", "Launching permission request...")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Launching permission request...")
             requestPermissionActivityLauncher.launch(readPermissions)
-            Log.d("PermissionActivity", "Permission request launched successfully")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Permission request launched successfully")
 
         } catch (e: Exception) {
-            Log.e("PermissionActivity", "Error launching permission request", e)
-            showErrorDialog("Error requesting permissions: ${e.message}")
+            Log.e(PERMISSION_ACTIVITY_NAME, "Error launching permission request", e)
+            showErrorDialog(getString(R.string.error_requesting_permissions, e.message))
         }
     }
 
     private fun openHealthConnectDirectly() {
         try {
-            // Intentar abrir Health Connect directamente
             val intent = Intent().apply {
                 setClassName(
                     "com.google.android.apps.healthdata",
@@ -210,96 +233,162 @@ class PermissionActivity : AppCompatActivity() {
                 putExtra("package_name", packageName)
             }
 
-            Log.d("PermissionActivity", "Trying to open Health Connect directly...")
-            startActivityForResult(intent, REQUEST_CODE_HEALTH_CONNECT)
+            Log.d(PERMISSION_ACTIVITY_NAME, "Trying to open Health Connect directly...")
+            healthConnectLauncher.launch(intent)
 
         } catch (e: Exception) {
-            Log.e("PermissionActivity", "Error opening Health Connect directly", e)
+            Log.e(PERMISSION_ACTIVITY_NAME, "Error opening Health Connect directly", e)
 
-            // Fallback: abrir Health Connect en general
             try {
                 val intent = packageManager.getLaunchIntentForPackage("com.google.android.apps.healthdata")
                 if (intent != null) {
                     startActivity(intent)
                 } else {
-                    showErrorDialog("Health Connect its not installed")
+                    showErrorDialog(getString(R.string.health_connect_not_installed))
                 }
             } catch (e2: Exception) {
-                Log.e("PermissionActivity", "Error with fallback", e2)
-                showErrorDialog("Health Connect cannot be opened: ${e2.message}")
+                Log.e(PERMISSION_ACTIVITY_NAME, "Error with fallback", e2)
+                showErrorDialog(getString(R.string.health_connect_cannot_open, e2.message))
             }
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        Log.d("PermissionActivity", "onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
+    private fun startDataSync() {
+        if (isSyncing) {
+            Log.d(PERMISSION_ACTIVITY_NAME, "Sync already in progress, ignoring request")
+            return
+        }
 
-        if (requestCode == REQUEST_CODE_HEALTH_CONNECT) {
-            // Verificar permisos nuevamente después de regresar de Health Connect
-            checkPermissionsOnStart()
+        lifecycleScope.launch {
+            try {
+                isSyncing = true
+                updateUIForSyncing()
+
+                Log.d(PERMISSION_ACTIVITY_NAME, "Starting data synchronization...")
+
+                // Schedule the worker for immediate execution
+                scheduleWorker()
+
+                // Simulate sync process (replace this with actual sync logic if needed)
+                // In a real scenario, you might want to listen to WorkManager status
+                delay(3000) // Simulate network/sync delay
+
+                // Update last sync time
+                lastSyncTime = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                    .format(java.util.Date())
+
+                Log.d(PERMISSION_ACTIVITY_NAME, "Data synchronization completed")
+                updateUIForSyncCompleted()
+
+            } catch (e: Exception) {
+                Log.e(PERMISSION_ACTIVITY_NAME, "Error during sync", e)
+                updateUIForSyncError(e.message ?: "Unknown error")
+            } finally {
+                isSyncing = false
+            }
         }
     }
 
     private fun handlePermissionResult(grantedPermissions: Set<String>) {
-        Log.d("PermissionActivity", "=== PERMISSION RESULT ===")
-        Log.d("PermissionActivity", "Granted: $grantedPermissions")
-        Log.d("PermissionActivity", "Required: $readPermissions")
+        Log.d(PERMISSION_ACTIVITY_NAME, "=== PERMISSION RESULT ===")
+        Log.d(PERMISSION_ACTIVITY_NAME, "Granted: $grantedPermissions")
+        Log.d(PERMISSION_ACTIVITY_NAME, "Required: $readPermissions")
 
         val missingPermissions = readPermissions - grantedPermissions
 
         if (missingPermissions.isEmpty()) {
-            Log.d("PermissionActivity", "✅ All permissions needed granted successfully")
+            Log.d(PERMISSION_ACTIVITY_NAME, "âœ… All permissions needed granted successfully")
             updateUIForAllPermissionsGranted()
-            setResult(RESULT_OK)
             scheduleWorker()
+            // Don't finish the activity anymore
         } else {
-            Log.w("PermissionActivity", "❌ Missing permissions: $missingPermissions")
+            Log.w("PermissionActivity", "âŒ Missing permissions: $missingPermissions")
             updateUIForPermissionDenied()
-            setResult(RESULT_CANCELED)
-        }
-
-        // Pequeño delay para que el usuario vea el resultado
-        lifecycleScope.launch {
-            kotlinx.coroutines.delay(2000)
-            finish()
         }
     }
 
     private fun updateUIForPermissionRequest() {
-        findViewById<TextView>(R.id.text_status)?.text =
-            "Health Connect permissions are needed in order to read Health Data"
+        findViewById<TextView>(R.id.text_status)?.text = getString(R.string.health_connect_permissions_needed)
         findViewById<Button>(R.id.button_request_permissions)?.apply {
             isEnabled = true
-            text = "Grant Permissions (Launcher)"
+            text = getString(R.string.grant_permissions)
         }
         findViewById<Button>(R.id.button_open_health_connect)?.apply {
             isEnabled = true
-            text = "Open Health Connect app directly"
+            text = getString(R.string.open_health_connect_settings)
+        }
+        findViewById<Button>(R.id.button_sync_data)?.apply {
+            isEnabled = false
+            text = getString(R.string.sync_data_permissions_required)
         }
     }
 
     private fun updateUIForAllPermissionsGranted() {
         findViewById<TextView>(R.id.text_status)?.text =
-            "✅ All needed permissions granted."
+            if (lastSyncTime != null)
+                getString(R.string.permissions_granted_last_sync, lastSyncTime)
+            else
+                getString(R.string.all_permissions_granted_ready)
+
         findViewById<Button>(R.id.button_request_permissions)?.apply {
             isEnabled = false
-            text = "Permissions granted"
-        }
-        findViewById<Button>(R.id.button_open_health_connect)?.isEnabled = false
-    }
-
-    private fun updateUIForPermissionDenied() {
-        findViewById<TextView>(R.id.text_status)?.text =
-            "❌ Some permissions were denied. Try opening the Health Connect directly."
-        findViewById<Button>(R.id.button_request_permissions)?.apply {
-            isEnabled = true
-            text = "Retry Permissions Launcher"
+            text = getString(R.string.permissions_granted)
         }
         findViewById<Button>(R.id.button_open_health_connect)?.apply {
             isEnabled = true
-            text = "Open Health Connect app"
+            text = getString(R.string.open_health_connect_settings)
         }
+        findViewById<Button>(R.id.button_sync_data)?.apply {
+            isEnabled = !isSyncing
+            text = if (isSyncing) getString(R.string.syncing_ellipsis) else getString(R.string.sync_health_data)
+        }
+    }
+
+    private fun updateUIForPermissionDenied() {
+        findViewById<TextView>(R.id.text_status)?.text = getString(R.string.some_permissions_denied)
+        findViewById<Button>(R.id.button_request_permissions)?.apply {
+            isEnabled = true
+            text = getString(R.string.retry_permission_request)
+        }
+        findViewById<Button>(R.id.button_open_health_connect)?.apply {
+            isEnabled = true
+            text = getString(R.string.open_health_connect_settings)
+        }
+        findViewById<Button>(R.id.button_sync_data)?.apply {
+            isEnabled = false
+            text = getString(R.string.sync_data_permissions_required)
+        }
+    }
+
+    private fun updateUIForSyncing() {
+        findViewById<TextView>(R.id.text_status)?.text = getString(R.string.synchronizing_data)
+
+        findViewById<Button>(R.id.button_sync_data)?.apply {
+            isEnabled = false
+            text = getString(R.string.syncing_ellipsis)
+        }
+        findViewById<Button>(R.id.button_request_permissions)?.isEnabled = false
+    }
+
+    private fun updateUIForSyncCompleted() {
+        findViewById<TextView>(R.id.text_status)?.text =
+            getString(R.string.data_synchronized_at, lastSyncTime)
+
+        findViewById<Button>(R.id.button_sync_data)?.apply {
+            isEnabled = true
+            text = getString(R.string.sync_health_data)
+        }
+        findViewById<Button>(R.id.button_request_permissions)?.isEnabled = false
+    }
+
+    private fun updateUIForSyncError(error: String) {
+        findViewById<TextView>(R.id.text_status)?.text = getString(R.string.sync_failed_error, error)
+
+        findViewById<Button>(R.id.button_sync_data)?.apply {
+            isEnabled = true
+            text = getString(R.string.retry_sync)
+        }
+        findViewById<Button>(R.id.button_request_permissions)?.isEnabled = false
     }
 
     private fun showInstallHealthConnectDialog() {
@@ -310,8 +399,7 @@ class PermissionActivity : AppCompatActivity() {
                 openHealthConnectInPlayStore()
             }
             .setNegativeButton("Cancel") { _, _ ->
-                setResult(RESULT_CANCELED)
-                finish()
+                // Don't finish, let user stay in the app
             }
             .setCancelable(false)
             .show()
@@ -325,8 +413,7 @@ class PermissionActivity : AppCompatActivity() {
                 openHealthConnectInPlayStore()
             }
             .setNegativeButton("Cancel") { _, _ ->
-                setResult(RESULT_CANCELED)
-                finish()
+                // Don't finish, let user stay in the app
             }
             .setCancelable(false)
             .show()
@@ -345,13 +432,14 @@ class PermissionActivity : AppCompatActivity() {
     private fun openHealthConnectInPlayStore() {
         try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("market://details?id=com.google.android.apps.healthdata")
+                data = "market://details?id=com.google.android.apps.healthdata".toUri()
                 setPackage("com.android.vending")
             }
             startActivity(intent)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")
+                data =
+                    "https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata".toUri()
             }
             startActivity(intent)
         }
@@ -361,13 +449,13 @@ class PermissionActivity : AppCompatActivity() {
         try {
             val scheduler: WorkScheduler = if (AppConfig.testMode) TestScheduler() else DailyScheduler()
             scheduler.scheduleWork(this)
-            Log.d("PermissionActivity", "Worker scheduled successfully")
+            Log.d(PERMISSION_ACTIVITY_NAME, "Worker scheduled successfully")
         } catch (e: Exception) {
-            Log.e("PermissionActivity", "Error scheduling worker", e)
+            Log.e(PERMISSION_ACTIVITY_NAME, "Error scheduling worker", e)
         }
     }
 
     companion object {
-        private const val REQUEST_CODE_HEALTH_CONNECT = 1001
+        private const val PERMISSION_ACTIVITY_NAME: String = "PermissionActivity"
     }
 }

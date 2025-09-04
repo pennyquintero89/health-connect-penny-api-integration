@@ -1,0 +1,59 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+
+  <!-- Outer Ring -->
+  <path
+      android:fillColor="@android:color/transparent"
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="3"
+      android:strokeAlpha="0.3"
+      android:pathData="M32,4C16.5,4 4,16.5 4,32s12.5,28 28,28s28,-12.5 28,-28S47.5,4 32,4z"/>
+
+  <!-- Inner Medical Cross -->
+  <!-- Vertical bar of cross -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.9"
+      android:pathData="M28,16 L36,16 L36,48 L28,48 Z"/>
+
+  <!-- Horizontal bar of cross -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.9"
+      android:pathData="M16,28 L48,28 L48,36 L16,36 Z"/>
+
+  <!-- Activity indicators - small pulses around the cross -->
+  <!-- Top pulse -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.6"
+      android:pathData="M30,8 L32,12 L34,8 Z"/>
+
+  <!-- Right pulse -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.6"
+      android:pathData="M56,30 L52,32 L56,34 Z"/>
+
+  <!-- Bottom pulse -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.6"
+      android:pathData="M34,56 L32,52 L30,56 Z"/>
+
+  <!-- Left pulse -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.6"
+      android:pathData="M8,34 L12,32 L8,30 Z"/>
+
+  <!-- Central dot for connection (converted to small path) -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.8"
+      android:pathData="M32,29a3,3 0,1 1,0 6a3,3 0,1 1,0 -6z"/>
+
+</vector>
