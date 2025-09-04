@@ -1,3 +1,35 @@
 <resources>
     <string name="app_name">Penny Health Connect Sync</string>
+    <string name="data_safety">All your data is safe and encrypted.</string>
+    <string name="health_data_available">Health Data available</string>
+    <string name="health_connect">Health Connect</string>
+    <string name="health_connect_icon">Health Connect Icon</string>
+    <string name="config_permissions">Permissions configuration</string>
+    <string name="heart_frequency_data">Heart Rate</string>
+    <string name="sleep_and_wellness">Sleep and Wellness</string>
+    <string name="steps_and_activity">Steps and Workouts</string>
+    <string name="sync_health_data">Sync Health Data</string>
+    <string name="sync_completed">Data synchronized successfully</string>
+    <string name="sync_failed">Sync failed</string>
+    <string name="retry_sync">Retry Sync</string>
+    <string name="health_connect_permissions_needed">Health Connect permissions are needed in order to read Health Data</string>
+    <string name="grant_permissions">Grant Permissions</string>
+    <string name="grant_permissions_launcher">Grant Permissions (Launcher)</string>
+    <string name="configuring_permissions_action">Configuring permissions…</string>
+    <string name="open_health_connect_settings">Open Health Connect Settings</string>
+    <string name="sync_data_permissions_required">Sync Data (Permissions Required)</string>
+    <string name="permissions_granted_last_sync">✅ Permissions granted. Last sync: %s</string>
+    <string name="all_permissions_granted_ready">✅ All needed permissions granted. Ready to sync data.</string>
+    <string name="permissions_granted">Permissions Granted</string>
+    <string name="syncing_ellipsis">Syncing…</string>
+    <string name="some_permissions_denied">❌ Some permissions were denied. Try opening Health Connect settings directly.</string>
+    <string name="retry_permission_request">Retry Permission Request</string>
+    <string name="synchronizing_data">🔄 Synchronizing health data with server…</string>
+    <string name="data_synchronized_at">✅ Data synchronized successfully at %s</string>
+    <string name="sync_failed_error">❌ Sync failed: %s</string>
+    <string name="health_connect_not_installed">Health Connect its not installed</string>
+    <string name="health_connect_cannot_open">Health Connect cannot be opened: %s</string>
+    <string name="error_connecting_health_connect">Error connecting to Health Connect: %s</string>
+    <string name="internal_error_launcher">Internal Error: launcher not initialized</string>
+    <string name="error_requesting_permissions">Error requesting permissions: %s</string>
 </resources>
